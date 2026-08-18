@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRT Typewriter · Smart Audio</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+    body { background:#0a0e14; min-height:100vh; display:flex; justify-content:center; align-items:flex-start; font-family:'Courier New',monospace; padding:20px; background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.15)0,rgba(0,0,0,.15)2px,transparent 2px,transparent 4px),repeating-linear-gradient(90deg,rgba(0,255,100,.02)0,rgba(0,255,100,.02)1px,transparent 1px,transparent 3px); color:#b7ff9f; }
+    .app { width:100%; max-width:820px; display:flex; flex-direction:column; gap:24px; position:relative; }
+    .terminal { background:#11161d; border:2px solid #33ff66; padding:20px 24px 24px; box-shadow:0 0 40px rgba(51,255,102,.06), inset 0 0 60px rgba(0,0,0,.7); position:relative; }
+    .terminal::after { content:''; position:absolute; inset:0; background:radial-gradient(circle at 30% 40%,rgba(0,255,100,.02),transparent 70%); pointer-events:none; }
+    .header-info { display:flex; justify-content:space-between; align-items:baseline; padding-bottom:10px; border-bottom:1px solid #33ff66; margin-bottom:16px; font-size:13px; letter-spacing:1px; color:#7dbf7d; flex-wrap:wrap; gap:6px 12px; }
+    .header-info .tag { color:#fc0; font-weight:700; }
+    .header-info .id { color:#b7ff9f; opacity:.7; }
+    .header-info .screen-id { border:1px solid #33ff66; padding:0 10px; background:rgba(51,255,102,.05); font-size:12px; letter-spacing:2px; }
+    .screen-area { background:#0d1219; border:1px solid #33ff66; padding:18px 16px; margin-bottom:16px; min-height:140px; box-shadow:inset 0 0 50px rgba(0,0,0,.8); position:relative; }
+    .screen-area::before { content:''; position:absolute; inset:0; background:repeating-linear-gradient(0deg,rgba(0,0,0,.03)0,rgba(0,0,0,.03)1px,transparent 1px,transparent 3px); pointer-events:none; }
+    .typewriter-output { font-size:17px; line-height:1.8; color:#b7ff9f; white-space:pre-wrap; word-break:break-word; min-height:80px; max-height:200px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#33ff66 #0d1219; position:relative; z-index:2; }
+    .typewriter-output::-webkit-scrollbar { width:6px; }
+    .typewriter-output::-webkit-scrollbar-track { background:#0d1219; }
+    .typewriter-output::-webkit-scrollbar-thumb { background:#33ff66; border-radius:0; }
+    .cursor-blink { display:inline-block; width:10px; height:20px; background:#33ff66; vertical-align:text-bottom; animation:blink .8s step-end infinite; margin-left:2px; box-shadow:0 0 8px #33ff66; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .control-bar { display:flex; flex-direction:column; gap:12px; }
+    .input-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .input-row input { flex:1; min-width:160px; padding:10px 14px; background:#0d1219; border:1px solid #33ff66; color:#b7ff9f; font-size:15px; outline:none; transition:background .2s; }
+    .input-row input:focus { background:#0f1a1a; border-color:#fc0; box-shadow:0 0 12px rgba(51,255,102,.1); }
+    .btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { padding:10px 20px; background:transparent; border:1px solid #33ff66; color:#33ff66; font-weight:700; font-size:14px; letter-spacing:1px; cursor:pointer; transition:.15s; text-transform:uppercase; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { background:#33ff66; color:#0a0e14; box-shadow:0 0 20px rgba(51,255,102,.2); }
+    .btn:active { transform:scale(.96); }
+    .btn-primary { border-color:#fc0; color:#fc0; }
+    .btn-primary:hover { background:#fc0; color:#0a0e14; }
+    .btn-danger { border-color:#f55; color:#f55; }
+    .btn-danger:hover { background:#f55; color:#0a0e14; }
+    .status-line { display:flex; justify-content:space-between; font-size:12px; color:#4d8f4d; border-top:1px solid #1a3a1a; padding-top:10px; margin-top:6px; letter-spacing:.5px; flex-wrap:wrap; gap:6px; }
+    .status-line .blink-text { animation:blink 1.2s step-end infinite; }
+    .canvas-area { background:#0d1219; border:1px solid #33ff66; padding:16px; min-height:180px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:14px; transition:border-color .2s,background .2s; box-shadow:inset 0 0 40px rgba(0,0,0,.6); position:relative; }
+    .canvas-area.drag-over { border-color:#fc0; background:#121f1a; }
+    .card-item {
+      background:#11161d; border:1px solid #33ff66; border-left:4px solid #fc0; border-radius:8px;
+      padding:10px 16px; color:#b7ff9f; font-size:15px; line-height:1.5; max-width:260px;
+      word-break:break-word; cursor:grab; transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, opacity 0.2s;
+      position:relative; z-index:10; white-space:pre-wrap; flex-shrink:0; box-shadow:0 2px 0 rgba(51,255,102,.1); touch-action:none;
+    }
+    .card-item:active { cursor:grabbing; }
+    .card-item:not(.dragging):hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(51,255,102,.2); border-color: #fc0; }
+    .card-item.dragging {
+      opacity:1; transform:scale(1.04) rotate(-1deg) !important; border-color:#fc0;
+      box-shadow:0 12px 40px rgba(0,0,0,.8), 0 0 30px rgba(51,255,102,.15);
+      z-index:1000; cursor:grabbing; position:fixed; pointer-events:none; transition:none; border-radius:8px;
+    }
+    .card-item.dragging::after {
+      content:'\f256'; font-family:'Font Awesome 6 Free'; font-weight:900;
+      position:absolute; bottom:-12px; right:-12px; background:#11161d; color:#fc0;
+      font-size:16px; padding:4px 8px; border:1px solid #33ff66; line-height:1; pointer-events:none; transform:rotate(10deg); border-radius:4px;
+    }
+    .card-item.exchanging {
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s;
+      transform: scale(1.15) rotate(2deg) !important; box-shadow: 0 0 40px rgba(255,204,0,0.5);
+      border-color: #fc0; border-radius: 12px;
+    }
+    .card-placeholder { position:relative; flex-shrink:0; border:none; background:rgba(51,255,102,.03); border-radius:8px; overflow:hidden; }
+    .card-placeholder svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; border-radius:8px; }
+    .card-placeholder svg rect { fill:none; stroke:#33ff66; stroke-width:2; stroke-dasharray:8 6; animation:borderFlow .8s linear infinite; rx:6; ry:6; }
+    @keyframes borderFlow { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-28} }
+    .empty-hint { color:#3d6b3d; font-size:14px; letter-spacing:1px; margin:20px auto; display:flex; align-items:center; gap:12px; }
+    .empty-hint i { font-size:22px; opacity:.6; }
+    #curveCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999; }
+    @media(max-width:550px){ .terminal{padding:16px} .header-info{font-size:11px} .typewriter-output{font-size:15px} .input-row input{font-size:14px;padding:8px 12px} .btn{padding:8px 14px;font-size:12px} .card-item{font-size:13px;max-width:180px;padding:8px 12px} }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="terminal">
+    <div class="header-info">
+      <span><span class="tag">MESSAGE</span> <span class="id">08:06</span></span>
+      <span><span class="tag">SENTENCE-9000</span> <span class="id">ID: 59235</span></span>
+      <span class="screen-id"><i class="fas fa-sync-alt"></i> SCREEN 9000</span>
+    </div>
+    <div class="screen-area">
+      <div class="typewriter-output" id="output"><span>We often fuss over trivial matters but ignore the truly important ones.</span><span class="cursor-blink"></span></div>
+    </div>
+    <div class="control-bar">
+      <div class="input-row">
+        <input type="text" id="input" placeholder="Enter new message..." autofocus>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="genBtn"><i class="fas fa-print"></i> Commit</button>
+          <button class="btn" id="clearBtn"><i class="fas fa-undo-alt"></i> Clear</button>
+        </div>
+      </div>
+      <div class="status-line">
+        <span><i class="fas fa-circle" style="color:#33ff66;font-size:10px;"></i> <span class="blink-text">AUTO-FEED</span> <span style="opacity:.5;">|</span> <span id="totalChars">0</span> CHARS</span>
+        <span id="cardCountDisplay"><i class="fas fa-cubes"></i> CARDS: 0</span>
+        <span><i class="fas fa-trash-alt" style="opacity:.6;"></i> <button class="btn" id="clearCardsBtn" style="padding:2px 12px;font-size:11px;border-color:#4d8f4d;color:#4d8f4d;">REMOVE ALL</button></span>
+      </div>
+    </div>
+  </div>
+  <div class="canvas-area" id="canvas" style="position:relative;">
+    <canvas id="curveCanvas"></canvas>
+    <div class="empty-hint" id="empty">
+      <i class="fas fa-hand-pointer"></i> DRAG CARDS HERE <i class="fas fa-arrows-alt"></i>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // ============================================================
+    //  Audio System - moderate volume, smart triggering
+    // ============================================================
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    function ensureAudioContext() {
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(e => console.warn('Audio activation failed:', e));
+      }
+      return ctx;
+    }
+
+    function playSound(type) {
+      try {
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        switch (type) {
+          case 'edit': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 600 + Math.random() * 400;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.20, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            osc.start(now);
+            osc.stop(now + 0.04);
+            break;
+          }
+          case 'copy': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 1200;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+            break;
+          }
+          case 'paste': {
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(800, now);
+            osc1.frequency.setValueAtTime(1000, now + 0.06);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            gain1.gain.setValueAtTime(0.15, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc1.start(now);
+            osc1.stop(now + 0.12);
+            break;
+          }
+          case 'enter': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.linearRampToValueAtTime(1200, now + 0.15);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+            osc.start(now);
+            osc.stop(now + 0.18);
+            break;
+          }
+          case 'swap': {
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(500, now);
+            osc1.frequency.setValueAtTime(700, now + 0.04);
+            osc1.frequency.setValueAtTime(500, now + 0.08);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            gain1.gain.setValueAtTime(0.12, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc1.start(now);
+            osc1.stop(now + 0.12);
+            break;
+          }
+          case 'clear': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1000, now);
+            osc.frequency.linearRampToValueAtTime(200, now + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.10, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+            break;
+          }
+          case 'remove': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+            break;
+          }
+          case 'select': {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 600;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.10, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+            osc.start(now);
+            osc.stop(now + 0.06);
+            break;
+          }
+          default: break;
+        }
+      } catch (e) {
+        console.debug('Sound play failed:', e);
+      }
+    }
+
+    // ============================================================
+    //  Core functionality (preserving original logic)
+    // ============================================================
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    const out = $('#output'), inp = $('#input'), gen = $('#genBtn'), clear = $('#clearBtn');
+    const canvas = $('#canvas'), empty = $('#empty'), clearCards = $('#clearCardsBtn');
+    const totalCharsSpan = $('#totalChars');
+    const cardCountSpan = $('#cardCountDisplay');
+    const curveCanvas = $('#curveCanvas');
+    const ctx = curveCanvas.getContext('2d');
+
+    function updateStats() {
+      const cards = canvas.querySelectorAll('.card-item');
+      const total = cards.length;
+      cardCountSpan.innerHTML = `<i class="fas fa-cubes"></i> CARDS: ${total}`;
+      let chars = 0;
+      cards.forEach(c => chars += c.textContent.length);
+      totalCharsSpan.textContent = chars;
+    }
+
+    let timer = null, typing = false;
+    const clearOut = () => { clearTimeout(timer); typing = false; out.innerHTML = '<span class="cursor-blink"></span>'; };
+    const showMessage = (text, withKeySound = false) => {
+      clearOut();
+      out.innerHTML = '';
+      const cur = document.createElement('span');
+      cur.className = 'cursor-blink';
+      out.appendChild(cur);
+      if (!text || !text.trim()) { out.insertBefore(document.createTextNode('Waiting for input...'), cur); return; }
+      const chars = [...text];
+      let i = 0;
+      typing = true;
+      const next = () => {
+        if (!typing) return;
+        if (i < chars.length) {
+          out.insertBefore(document.createTextNode(chars[i]), cur);
+          if (withKeySound) playSound('edit');
+          i++;
+          timer = setTimeout(next, 25 + Math.random() * 35);
+        } else { typing = false; timer = null; }
+      };
+      next();
+    };
+
+    // Drag & drop functions (same as previous, slightly streamlined)
+    let dragState = { active: false, card: null, placeholder: null, offsetX: 0, offsetY: 0, target: null };
+    function resizeCanvas() { const rect = canvas.getBoundingClientRect(); curveCanvas.width = rect.width; curveCanvas.height = rect.height; curveCanvas.style.width = rect.width + 'px'; curveCanvas.style.height = rect.height + 'px'; }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50);
+
+    function drawCurve(placeholder, targetCard) {
+      if (!placeholder || !targetCard) { ctx.clearRect(0, 0, curveCanvas.width, curveCanvas.height); return; }
+      const rect = canvas.getBoundingClientRect();
+      const phRect = placeholder.getBoundingClientRect();
+      const fromX = phRect.left + phRect.width/2 - rect.left;
+      const fromY = phRect.top + phRect.height/2 - rect.top;
+      const toRect = targetCard.getBoundingClientRect();
+      const toX = toRect.left + toRect.width/2 - rect.left;
+      const toY = toRect.top + toRect.height/2 - rect.top;
+      ctx.clearRect(0, 0, curveCanvas.width, curveCanvas.height);
+      const cp1x = fromX + (toX - fromX) * 0.3, cp1y = fromY - 50;
+      const cp2x = toX - (toX - fromX) * 0.3, cp2y = toY - 50;
+      ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, toX, toY);
+      ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke();
+      const rcp1x = toX + (fromX - toX) * 0.3, rcp1y = toY + 40;
+      const rcp2x = fromX - (fromX - toX) * 0.3, rcp2y = fromY + 40;
+      ctx.beginPath(); ctx.moveTo(toX, toY); ctx.bezierCurveTo(rcp1x, rcp1y, rcp2x, rcp2y, fromX, fromY);
+      ctx.strokeStyle = '#33ff66'; ctx.lineWidth = 2; ctx.stroke();
+      function drawArrow(x, y, angle, color) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-10, -6); ctx.lineTo(-10, 6); ctx.closePath();
+        ctx.fillStyle = color; ctx.fill(); ctx.restore();
+      }
+      let angle = Math.atan2(toY - fromY, toX - fromX);
+      drawArrow(toX, toY, angle, '#ffcc00');
+      drawArrow(fromX, fromY, angle + Math.PI, '#33ff66');
+    }
+    function clearCurve() { ctx.clearRect(0, 0, curveCanvas.width, curveCanvas.height); }
+
+    function createPlaceholder(card) {
+      const ph = document.createElement('div'); ph.className = 'card-placeholder';
+      const rect = card.getBoundingClientRect(); const w = rect.width, h = rect.height;
+      ph.style.width = w + 'px'; ph.style.height = h + 'px'; ph.style.minWidth = w + 'px'; ph.style.minHeight = h + 'px';
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', w); svg.setAttribute('height', h); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
+      const rectElem = document.createElementNS(svgNS, 'rect');
+      rectElem.setAttribute('x', '2'); rectElem.setAttribute('y', '2');
+      rectElem.setAttribute('width', (w - 4) + ''); rectElem.setAttribute('height', (h - 4) + '');
+      rectElem.setAttribute('fill', 'none'); rectElem.setAttribute('stroke', '#33ff66');
+      rectElem.setAttribute('stroke-width', '2'); rectElem.setAttribute('stroke-dasharray', '8 6');
+      rectElem.setAttribute('rx', '6'); rectElem.setAttribute('ry', '6');
+      svg.appendChild(rectElem); ph.appendChild(svg);
+      return ph;
+    }
+
+    function swapNodes(a, b) {
+      if (a === b) return;
+      const parent = a.parentNode;
+      if (!parent || parent !== b.parentNode) return;
+      if (a.nextSibling === b) { parent.insertBefore(b, a); return; }
+      if (b.nextSibling === a) { parent.insertBefore(a, b); return; }
+      const nextB = b.nextSibling;
+      parent.insertBefore(b, a);
+      parent.insertBefore(a, nextB);
+    }
+
+    function startDrag(e) {
+      const card = e.target.closest('.card-item');
+      if (!card) return;
+      if (e.button && e.button !== 0) return;
+      e.preventDefault();
+      if (dragState.active) endDrag();
+      const text = card.textContent.trim();
+      showMessage(`Selected “${text}” from library`, false);
+      playSound('select');
+      const rect = card.getBoundingClientRect();
+      const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+      const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
+      dragState.active = true;
+      dragState.card = card;
+      dragState.offsetX = clientX - rect.left;
+      dragState.offsetY = clientY - rect.top;
+      const placeholder = createPlaceholder(card);
+      card.parentNode.insertBefore(placeholder, card);
+      dragState.placeholder = placeholder;
+      card.classList.add('dragging');
+      card.style.left = (clientX - dragState.offsetX) + 'px';
+      card.style.top = (clientY - dragState.offsetY) + 'px';
+      card.style.width = rect.width + 'px';
+      card.style.height = rect.height + 'px';
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mouseup', onDragEnd);
+      document.addEventListener('touchmove', onDragMove, { passive: false });
+      document.addEventListener('touchend', onDragEnd);
+    }
+
+    function onDragMove(e) {
+      e.preventDefault();
+      if (!dragState.active) return;
+      const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+      const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
+      const card = dragState.card;
+      card.style.left = (clientX - dragState.offsetX) + 'px';
+      card.style.top = (clientY - dragState.offsetY) + 'px';
+      const elements = document.elementsFromPoint(clientX, clientY);
+      let target = null;
+      for (let el of elements) {
+        if (el.classList && el.classList.contains('card-item') && el !== card && !el.classList.contains('dragging')) {
+          target = el;
+          break;
+        }
+      }
+      if (target && dragState.placeholder) {
+        drawCurve(dragState.placeholder, target);
+        dragState.target = target;
+      } else {
+        clearCurve();
+        dragState.target = null;
+      }
+    }
+
+    function onDragEnd(e) {
+      if (!dragState.active) return;
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('mouseup', onDragEnd);
+      document.removeEventListener('touchmove', onDragMove);
+      document.removeEventListener('touchend', onDragEnd);
+      const card = dragState.card;
+      const placeholder = dragState.placeholder;
+      const target = dragState.target;
+      clearCurve();
+      if (card) {
+        card.classList.remove('dragging');
+        card.style.position = '';
+        card.style.left = '';
+        card.style.top = '';
+        card.style.width = '';
+        card.style.height = '';
+      }
+      if (placeholder && placeholder.parentNode) placeholder.remove();
+      if (target && card && target !== card) {
+        const parent = card.parentNode;
+        if (parent && parent.contains(target)) {
+          const text1 = card.textContent.trim();
+          const text2 = target.textContent.trim();
+          showMessage(`Swapped “${text1}” with “${text2}”`, false);
+          playSound('swap');
+          card.classList.add('exchanging');
+          target.classList.add('exchanging');
+          swapNodes(card, target);
+          setTimeout(() => {
+            card.classList.remove('exchanging');
+            target.classList.remove('exchanging');
+            updateStats();
+          }, 500);
+        }
+      }
+      dragState.active = false;
+      dragState.card = null;
+      dragState.placeholder = null;
+      dragState.target = null;
+      if (empty) {
+        if (canvas.querySelectorAll('.card-item').length === 0) empty.style.display = 'flex';
+        else empty.style.display = 'none';
+      }
+      updateStats();
+    }
+
+    function genCard(text) {
+      if (!text || !text.trim()) { showMessage('⚠️ Commit failed: content empty', false); return; }
+      showMessage(`Committed “${text}” to library`, false);
+      playSound('enter');
+      const card = document.createElement('div');
+      card.className = 'card-item';
+      card.textContent = text;
+      card.dataset.cardText = text;
+      card.addEventListener('mousedown', startDrag);
+      card.addEventListener('touchstart', startDrag, { passive: false });
+      card.addEventListener('dragstart', e => e.preventDefault());
+      if (empty) { canvas.insertBefore(card, empty); } else { canvas.appendChild(card); }
+      if (empty) empty.style.display = 'none';
+      inp.value = '';
+      inp.focus();
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      updateStats();
+    }
+
+    function clearAllCards() {
+      const cards = canvas.querySelectorAll('.card-item');
+      if (cards.length === 0) { showMessage('Remove all: no cards in library', false); return; }
+      showMessage(`Removed all (${cards.length} cards)`, false);
+      playSound('remove');
+      cards.forEach(c => c.remove());
+      $$('.card-placeholder').forEach(el => el.remove());
+      if (empty) empty.style.display = 'flex';
+      clearCurve();
+      if (dragState.active) endDrag();
+      updateStats();
+    }
+
+    function clearScreen() {
+      clearOut();
+      const cur = out.querySelector('.cursor-blink');
+      if (cur) out.insertBefore(document.createTextNode('Screen cleared'), cur);
+      playSound('clear');
+    }
+
+    // ============================================================
+    //  Smart input sound: text length change triggers edit sound,
+    //  and copy/paste have dedicated sounds.
+    // ============================================================
+    let previousLength = 0;
+    let pasteFlag = false;
+
+    inp.addEventListener('input', function(e) {
+      if (pasteFlag) {
+        pasteFlag = false;
+        return;
+      }
+      const currentLength = this.value.length;
+      if (currentLength !== previousLength) {
+        playSound('edit');
+        previousLength = currentLength;
+      }
+    });
+
+    inp.addEventListener('paste', function(e) {
+      playSound('paste');
+      pasteFlag = true;
+      setTimeout(() => {
+        previousLength = this.value.length;
+      }, 0);
+    });
+
+    inp.addEventListener('copy', function(e) {
+      if (window.getSelection().toString().length > 0) {
+        playSound('copy');
+      }
+    });
+
+    previousLength = inp.value.length;
+
+    // ============================================================
+    //  Other event bindings
+    // ============================================================
+    gen.addEventListener('click', () => {
+      const v = inp.value;
+      if (!v.trim()) { showMessage('⚠️ Commit failed: content empty', false); return; }
+      genCard(v.trim());
+    });
+
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        gen.click();
+      }
+    });
+
+    clear.addEventListener('click', clearScreen);
+    clearCards.addEventListener('click', clearAllCards);
+
+    canvas.addEventListener('dblclick', (e) => {
+      const c = e.target.closest('.card-item');
+      if (c) {
+        const text = c.textContent.trim();
+        inp.value = text;
+        previousLength = text.length;
+        inp.focus();
+        showMessage(`Selected “${text}”`, false);
+        playSound('select');
+      }
+    });
+
+    // ============================================================
+    //  Initialization
+    // ============================================================
+    function activateAudio() {
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(() => console.log('Audio activated')).catch(e => console.warn('Audio activation failed:', e));
+      }
+    }
+    document.addEventListener('click', activateAudio, { once: false });
+    document.addEventListener('touchstart', activateAudio, { once: false });
+    inp.addEventListener('focus', activateAudio, { once: false });
+
+    clearOut();
+    showMessage('We often fuss over trivial matters but ignore the truly important ones.', false);
+    updateStats();
+
+    window.addEventListener('load', () => {
+      inp.focus();
+      resizeCanvas();
+      activateAudio();
+    });
+
+    console.log('📟 CRT Typewriter · Smart Audio Edition started');
+    console.log('🔊 Input length changes trigger edit sound, copy/paste have dedicated sounds');
+  })();
+</script>
+</body>
+</html>
